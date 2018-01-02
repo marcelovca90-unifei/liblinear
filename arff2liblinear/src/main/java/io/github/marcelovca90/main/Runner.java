@@ -41,6 +41,7 @@ import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.stream.Collectors;
 
 import org.apache.commons.io.FileUtils;
@@ -142,16 +143,36 @@ public class Runner
         String solver = args[2].matches("solver[0-7]") ? args[2].substring(args[2].length() - 1) : "1";
         String training_set_file = args[3];
         String model_file = training_set_file.replace(".train", ".model");
+        String best_c_file = training_set_file.replace(".train", ".best_c");
+        String[] cmd;
 
-        String[] cmd = new String[] {
+        if (!Files.exists(Paths.get(best_c_file)))
+        {
+            // find best C
+            cmd = new String[] {
+                    USER_HOME + "/git/liblinear-marcelovca90/" + exec + "/train",
+                    "-s",
+                    solver,
+                    "-C",
+                    training_set_file,
+                    model_file
+            };
+            run(cmd, best_c_file);
+        }
+        Optional<String> optional = Files.lines(Paths.get(best_c_file)).filter(l -> l.startsWith("Best C")).findFirst();
+        double best_c = optional.isPresent() ? Double.parseDouble(optional.get().split("\\s")[3]) : 1.0;
+
+        // train
+        cmd = new String[] {
                 USER_HOME + "/git/liblinear-marcelovca90/" + exec + "/train",
                 "-s",
                 solver,
+                "-c",
+                String.valueOf(best_c),
                 "-q",
                 training_set_file,
                 model_file
         };
-
         long execTime = run(cmd, null);
 
         String execTimeFilename = training_set_file.replace(".train", ".train_times");

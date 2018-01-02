@@ -4,7 +4,7 @@ JVM_OPTS="-Xmx8G -Xms80m"
 METADATA="/Users/marcelocysneiros/git/anti-spam-weka-data/2017_BASE2_ARFF/metadata.txt"
 PRIMES=(2 3 5 7 11 13 17 19 23 29)
 KERNEL="poly1"
-SOLVER="solver1"
+SOLVER="solver2"
 
 while read p; do
   FOLDER=$(echo $p | cut -d',' -f1 | sed -e "s/~/\/Users\/marcelocysneiros/g")
@@ -29,5 +29,5 @@ while read p; do
       java $JVM_OPTS -jar ./arff2liblinear.jar aggregate $FOLDER/data.partial_results $FOLDER/data.train_times $FOLDER/data.test_times
 
       # tear down
-      cd $FOLDER && ls $FOLDER | grep -v arff | xargs rm && cd - > /dev/null
+      cd $FOLDER && ls $FOLDER | grep -v arff | grep -v best_c | xargs rm && cd - > /dev/null
 done <$METADATA
