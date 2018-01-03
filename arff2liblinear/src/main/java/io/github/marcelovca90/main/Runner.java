@@ -146,7 +146,7 @@ public class Runner
         String best_c_file = training_set_file.replace(".train", ".best_c");
         String[] cmd;
 
-        if (!Files.exists(Paths.get(best_c_file)))
+        if ((solver.equals("0") || solver.equals("2")) && !Files.exists(Paths.get(best_c_file)))
         {
             // find best C
             cmd = new String[] {
