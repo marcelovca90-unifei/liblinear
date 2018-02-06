@@ -293,7 +293,8 @@ public class Runner
             .readAllLines(Paths.get(testTimesFilename)).stream()
             .forEach(line -> map.get("testTime").addValue(Long.parseLong(line)));
 
-        String shortFilename = partialResultsFilename.substring(partialResultsFilename.lastIndexOf("2017"));
+        String aswd = "anti-spam-weka-data";
+        String shortFilename = partialResultsFilename.substring(partialResultsFilename.indexOf(aswd) + aswd.length() + 1);
         shortFilename = shortFilename.substring(0, shortFilename.lastIndexOf(File.separator));
         shortFilename = Arrays.stream(shortFilename.split(File.separator)).collect(Collectors.joining("\t"));
 
