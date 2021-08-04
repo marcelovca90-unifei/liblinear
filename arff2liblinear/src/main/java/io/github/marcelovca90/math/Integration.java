@@ -271,10 +271,10 @@ public class Integration
         double TPR = TP / (TP + FN);
         double FPR = FP / (FP + TN);
 
-        double[] X = { 0, TPR, 1 };
-        double[] Y = { 0, FPR, 1 };
+        double[] X = { 0, FPR, 1 };
+        double[] Y = { 0, TPR, 1 };
 
-        double AUC = Integration.trapz(Y, X);
+        double AUC = Integration.trapz(X, Y);
 
         if (Precision.equals(AUC, 0.8926, 1e-3))
             System.out.println("Calculated and expected AUC match.");

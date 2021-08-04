@@ -50,6 +50,8 @@ import org.apache.commons.math3.stat.descriptive.DescriptiveStatistics;
 
 import com.github.habernal.confusionmatrix.ConfusionMatrix;
 
+import io.github.marcelovca90.math.Integration;
+
 public class Runner
 {
     private static final String USER_HOME = System.getProperty("user.home");
@@ -225,33 +227,58 @@ public class Runner
         if (expected.size() != predicted.size())
             throw new Exception("expected.size() != predicted.size()");
 
-        int ham_spam = 0, ham_ham = 0, spam_ham = 0, spam_spam = 0;
+        int fp = 0, tn = 0, fn = 0, tp = 0;
 
         for (int i = 0; i < expected.size(); i++)
         {
             if (expected.get(i) == 1 && predicted.get(i) == 1)
-                ham_ham++;
+                tn++; // TN ham_ham
             if (expected.get(i) == 1 && predicted.get(i) == 2)
-                ham_spam++;
+                fp++; // FP ham_spam
             if (expected.get(i) == 2 && predicted.get(i) == 1)
-                spam_ham++;
+                fn++; // FN spam_ham
             if (expected.get(i) == 2 && predicted.get(i) == 2)
-                spam_spam++;
+                tp++; // TP spam_spam
         }
 
         ConfusionMatrix cm = new ConfusionMatrix();
 
-        cm.increaseValue("ham", "ham", ham_ham);
-        cm.increaseValue("ham", "spam", ham_spam);
-        cm.increaseValue("spam", "ham", spam_ham);
-        cm.increaseValue("spam", "spam", spam_spam);
+        cm.increaseValue("ham", "ham", tn);
+        cm.increaseValue("ham", "spam", fp);
+        cm.increaseValue("spam", "ham", fn);
+        cm.increaseValue("spam", "spam", tp);
 
         double hamPrecision = 100.0 * cm.getPrecisionForLabel("ham");
         double spamPrecision = 100.0 * cm.getPrecisionForLabel("spam");
+        double avgPrecision = 100.0 * cm.getAvgPrecision();
         double hamRecall = 100.0 * cm.getRecallForLabel("ham");
         double spamRecall = 100.0 * cm.getRecallForLabel("spam");
+        double avgRecall = 100.0 * cm.getAvgRecall();
+        double hamfMeasure = 100.0 * cm.getFMeasureForLabels().get("ham");
+        double spamfMeasure = 100.0 * cm.getFMeasureForLabels().get("ham");
         double fMeasure = 100.0 * (2.0 * (1.0 / ((1.0 / cm.getAvgRecall()) + (1.0 / cm.getAvgPrecision()))));
-        String result = String.format("%f\t%f\t%f\t%f\t%f\n", hamPrecision, spamPrecision, hamRecall, spamRecall, fMeasure);
+        double fMeasureMacro = 100.0 * cm.getMacroFMeasure();
+        double fMeasureMicro = 100.0 * cm.getMicroFMeasure();
+
+        // https://en.wikipedia.org/wiki/Precision_and_recall
+        // https://stats.stackexchange.com/questions/7207/roc-vs-precision-and-recall-curves
+
+        double x_recall = ((double) tp) / ((double) (tp + fn));
+        double y_precision = ((double) tp) / ((double) (tp + fp));
+        double[] xPRC = { 0.0, x_recall, 1.0 };
+        double[] yPRC = { 0.0, y_precision, 1.0 };
+        double auPRC = 100.0 * Integration.trapz(xPRC, yPRC);
+
+        double x_fpr = ((double) fp) / ((double) (fp + tn));
+        double y_tpr = ((double) tp) / ((double) (tp + fn));
+        double[] xROC = { 0.0, x_fpr, 1.0 };
+        double[] yROC = { 0.0, y_tpr, 1.0 };
+        double auROC = 100.0 * Integration.trapz(xROC, yROC);
+
+        String result = String.format(
+            "%f\t%f\t%f\t%f\t%f\t%f\t%f\t%f\t%f\t%f\t%f\t%f\t%f\n",
+            hamPrecision, spamPrecision, avgPrecision, hamRecall, spamRecall, avgRecall,
+            auPRC, auROC, hamfMeasure, spamfMeasure, fMeasure, fMeasureMicro, fMeasureMacro);
 
         String outputFilename = predictionFilename.replace(".prediction", ".partial_results");
         appendToFile(outputFilename, result);
@@ -265,9 +292,17 @@ public class Runner
         Map<String, DescriptiveStatistics> map = new HashMap<>();
         map.put("hamPrecision", new DescriptiveStatistics());
         map.put("spamPrecision", new DescriptiveStatistics());
+        map.put("avgPrecision", new DescriptiveStatistics());
         map.put("hamRecall", new DescriptiveStatistics());
         map.put("spamRecall", new DescriptiveStatistics());
+        map.put("avgRecall", new DescriptiveStatistics());
+        map.put("areaUnderPRC", new DescriptiveStatistics());
+        map.put("areaUnderROC", new DescriptiveStatistics());
+        map.put("hamFMeasure", new DescriptiveStatistics());
+        map.put("spamFMeasure", new DescriptiveStatistics());
         map.put("fMeasure", new DescriptiveStatistics());
+        map.put("fMeasureMicro", new DescriptiveStatistics());
+        map.put("fMeasureMacro", new DescriptiveStatistics());
         map.put("trainTime", new DescriptiveStatistics());
         map.put("testTime", new DescriptiveStatistics());
 
@@ -280,9 +315,17 @@ public class Runner
             String[] parts = Arrays.stream(line.split("\t", -1)).map(i -> i.replace(',', '.')).toArray(String[]::new);
             map.get("hamPrecision").addValue(Double.parseDouble(parts[0]));
             map.get("spamPrecision").addValue(Double.parseDouble(parts[1]));
-            map.get("hamRecall").addValue(Double.parseDouble(parts[2]));
-            map.get("spamRecall").addValue(Double.parseDouble(parts[3]));
-            map.get("fMeasure").addValue(Double.parseDouble(parts[4]));
+            map.get("avgPrecision").addValue(Double.parseDouble(parts[2]));
+            map.get("hamRecall").addValue(Double.parseDouble(parts[3]));
+            map.get("spamRecall").addValue(Double.parseDouble(parts[4]));
+            map.get("avgRecall").addValue(Double.parseDouble(parts[5]));
+            map.get("areaUnderPRC").addValue(Double.parseDouble(parts[6]));
+            map.get("areaUnderROC").addValue(Double.parseDouble(parts[7]));
+            map.get("hamFMeasure").addValue(Double.parseDouble(parts[8]));
+            map.get("spamFMeasure").addValue(Double.parseDouble(parts[9]));
+            map.get("fMeasure").addValue(Double.parseDouble(parts[10]));
+            map.get("fMeasureMicro").addValue(Double.parseDouble(parts[11]));
+            map.get("fMeasureMacro").addValue(Double.parseDouble(parts[12]));
         });
 
         Files
@@ -300,13 +343,21 @@ public class Runner
 
         System.out.println(
             String.format(
-                "%s\t%s ± %s\t%s ± %s\t%s ± %s\t%s ± %s\t%s ± %s\t%s ± %s\t%s ± %s",
+                "%s\t%s ± %s\t%s ± %s\t%s ± %s\t%s ± %s\t%s ± %s\t%s ± %s\t%s ± %s\t%s ± %s\t%s ± %s\t%s ± %s\t%s ± %s\t%s ± %s\t%s ± %s\t%s ± %s\t%s ± %s",
                 shortFilename,
                 formatPercentage(map.get("hamPrecision").getMean()), formatPercentage(confidenceInterval(map.get("hamPrecision"))),
                 formatPercentage(map.get("spamPrecision").getMean()), formatPercentage(confidenceInterval(map.get("spamPrecision"))),
+                formatPercentage(map.get("avgPrecision").getMean()), formatPercentage(confidenceInterval(map.get("avgPrecision"))),
                 formatPercentage(map.get("hamRecall").getMean()), formatPercentage(confidenceInterval(map.get("hamRecall"))),
                 formatPercentage(map.get("spamRecall").getMean()), formatPercentage(confidenceInterval(map.get("spamRecall"))),
+                formatPercentage(map.get("avgRecall").getMean()), formatPercentage(confidenceInterval(map.get("avgRecall"))),
+                formatPercentage(map.get("areaUnderPRC").getMean()), formatPercentage(confidenceInterval(map.get("areaUnderPRC"))),
+                formatPercentage(map.get("areaUnderROC").getMean()), formatPercentage(confidenceInterval(map.get("areaUnderROC"))),
+                formatPercentage(map.get("hamFMeasure").getMean()), formatPercentage(confidenceInterval(map.get("hamFMeasure"))),
+                formatPercentage(map.get("spamFMeasure").getMean()), formatPercentage(confidenceInterval(map.get("spamFMeasure"))),
                 formatPercentage(map.get("fMeasure").getMean()), formatPercentage(confidenceInterval(map.get("fMeasure"))),
+                formatPercentage(map.get("fMeasureMicro").getMean()), formatPercentage(confidenceInterval(map.get("fMeasureMicro"))),
+                formatPercentage(map.get("fMeasureMacro").getMean()), formatPercentage(confidenceInterval(map.get("fMeasureMacro"))),
                 formatMillis(map.get("trainTime").getMean()), formatMillis(confidenceInterval(map.get("trainTime"))),
                 formatMillis(map.get("testTime").getMean()), formatMillis(confidenceInterval(map.get("testTime")))));
     }
