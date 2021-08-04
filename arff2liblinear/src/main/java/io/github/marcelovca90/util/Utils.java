@@ -73,7 +73,7 @@ public class Utils
                 dataset.add(dataset.get(random.nextInt(hamCount)));
         else if (spamCount < hamCount)
             for (int i = 0; i < hamCount - spamCount; i++)
-            dataset.add(dataset.get(hamCount + random.nextInt(spamCount)));
+                dataset.add(dataset.get(hamCount + random.nextInt(spamCount)));
     }
 
     public static void shuffle(List<String> dataset, int seed)
