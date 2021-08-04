@@ -1,7 +1,7 @@
 #!/bin/bash
 
 JVM_OPTS="-Xmx8G -Xms80m"
-METADATA="/Users/marcelocysneiros/git/anti-spam-weka-data/2017_BASE2_ARFF/temp.txt"
+METADATA="/Users/marcelocysneiros/git/marcelovca90-unifei/anti-spam-weka-data/metadata/_relevant_mac.txt"
 PRIMES=(2 3 5 7 11 13 17 19 23 29)
 KERNELS=("poly1" "poly2")
 SOLVERS=("solver1" "solver2")
@@ -10,11 +10,13 @@ for KERNEL in "${KERNELS[@]}"
 do
     for SOLVER in "${SOLVERS[@]}"
     do
+        cat "header.log" > "$KERNEL$SOLVER.log"
         while read p;
         do
             FOLDER=$(echo $p | cut -d',' -f1 | sed -e "s/~/\/Users\/marcelocysneiros/g")
             EMPTY_HAM_COUNT=$(echo $p | cut -d',' -f2)
             EMPTY_SPAM_COUNT=$(echo $p | cut -d',' -f3)
+            echo "$FOLDER | $KERNEL | $SOLVER"
 
             for SEED in "${PRIMES[@]}"
             do

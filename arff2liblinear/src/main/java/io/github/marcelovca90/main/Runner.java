@@ -55,12 +55,12 @@ import io.github.marcelovca90.math.Integration;
 public class Runner
 {
     private static final String USER_HOME = System.getProperty("user.home");
+    private static final String REPO_FOLDER = "/git/marcelovca90-unifei/liblinear-marcelovca90";
 
     public static void main(String[] args) throws Exception
     {
         if (args == null || args.length == 0)
-            args = new String[]
-            { "empty" };
+            args = new String[] { "empty" };
 
         switch (args[0])
         {
@@ -92,7 +92,8 @@ public class Runner
     private static void prepare(String[] args) throws Exception, IOException
     {
         if (args.length != 5)
-            throw new Exception("usage: java -jar arff2liblinear.jar prepare arff_filename empty_ham_count empty_spam_count seed");
+            throw new Exception(
+                "usage: java -jar arff2liblinear.jar prepare arff_filename empty_ham_count empty_spam_count seed");
 
         String arffFilename = args[1];
         int emptyHamCount = Integer.parseInt(args[2]);
@@ -139,18 +140,21 @@ public class Runner
     private static void train(String[] args) throws Exception
     {
         if (args.length < 3 || (!args[1].equals("poly1") && !args[1].equals("poly2")))
-            throw new Exception("usage: java -jar arff2liblinear.jar train poly1|poly2 [solver0|1|2|3|4|5|6|7] training_set_file");
+            throw new Exception(
+                "usage: java -jar arff2liblinear.jar train poly1|poly2 [solver0|1|2|3|4|5|6|7] training_set_file");
 
         String exec = args[1].equals("poly1") ? "liblinear-default" : "liblinear-poly2-2.01";
         String solver = args[2].matches("solver[0-7]") ? args[2].substring(args[2].length() - 1) : "1";
         String training_set_file = args[3];
         String model_file = training_set_file.replace(".train", ".model");
         String best_c_file = training_set_file.replace(".train", ".best_c");
+        boolean find_best_c = false;
+        double best_c = 1.0;
         String[] cmd;
 
-        if ((solver.equals("0") || solver.equals("2")) && !Files.exists(Paths.get(best_c_file)))
+        // find best C
+        if (find_best_c && (solver.equals("0") || solver.equals("2")) && !Files.exists(Paths.get(best_c_file)))
         {
-            // find best C
             cmd = new String[] {
                     USER_HOME + "/git/liblinear-marcelovca90/" + exec + "/train",
                     "-s",
@@ -160,13 +164,13 @@ public class Runner
                     model_file
             };
             run(cmd, best_c_file);
+            Optional<String> optional = Files.lines(Paths.get(best_c_file)).filter(l -> l.startsWith("Best C")).findFirst();
+            best_c = optional.isPresent() ? Double.parseDouble(optional.get().split("\\s")[3]) : 1.0;
         }
-        Optional<String> optional = Files.lines(Paths.get(best_c_file)).filter(l -> l.startsWith("Best C")).findFirst();
-        double best_c = optional.isPresent() ? Double.parseDouble(optional.get().split("\\s")[3]) : 1.0;
 
         // train
         cmd = new String[] {
-                USER_HOME + "/git/liblinear-marcelovca90/" + exec + "/train",
+                USER_HOME + REPO_FOLDER + "/" + exec + "/train",
                 "-s",
                 solver,
                 "-c",
@@ -192,10 +196,9 @@ public class Runner
         String output_file = test_file.replace(".test", ".prediction");
 
         String[] cmd = new String[] {
-                USER_HOME + "/git/liblinear-marcelovca90/" + exec + "/predict",
+                USER_HOME + REPO_FOLDER + "/" + exec + "/predict",
                 test_file,
-                model_file,
-                output_file
+                model_file, output_file
         };
 
         long execTime = run(cmd, null);
@@ -257,8 +260,6 @@ public class Runner
         double hamfMeasure = 100.0 * cm.getFMeasureForLabels().get("ham");
         double spamfMeasure = 100.0 * cm.getFMeasureForLabels().get("ham");
         double fMeasure = 100.0 * (2.0 * (1.0 / ((1.0 / cm.getAvgRecall()) + (1.0 / cm.getAvgPrecision()))));
-        double fMeasureMacro = 100.0 * cm.getMacroFMeasure();
-        double fMeasureMicro = 100.0 * cm.getMicroFMeasure();
 
         // https://en.wikipedia.org/wiki/Precision_and_recall
         // https://stats.stackexchange.com/questions/7207/roc-vs-precision-and-recall-curves
@@ -275,10 +276,11 @@ public class Runner
         double[] yROC = { 0.0, y_tpr, 1.0 };
         double auROC = 100.0 * Integration.trapz(xROC, yROC);
 
-        String result = String.format(
-            "%f\t%f\t%f\t%f\t%f\t%f\t%f\t%f\t%f\t%f\t%f\t%f\t%f\n",
-            hamPrecision, spamPrecision, avgPrecision, hamRecall, spamRecall, avgRecall,
-            auPRC, auROC, hamfMeasure, spamfMeasure, fMeasure, fMeasureMicro, fMeasureMacro);
+        String result = String
+            .format(
+                "%f\t%f\t%f\t%f\t%f\t%f\t%f\t%f\t%f\t%f\t%f\n",
+                hamPrecision, spamPrecision, avgPrecision, hamRecall, spamRecall, avgRecall,
+                auPRC, auROC, hamfMeasure, spamfMeasure, fMeasure);
 
         String outputFilename = predictionFilename.replace(".prediction", ".partial_results");
         appendToFile(outputFilename, result);
@@ -301,8 +303,6 @@ public class Runner
         map.put("hamFMeasure", new DescriptiveStatistics());
         map.put("spamFMeasure", new DescriptiveStatistics());
         map.put("fMeasure", new DescriptiveStatistics());
-        map.put("fMeasureMicro", new DescriptiveStatistics());
-        map.put("fMeasureMacro", new DescriptiveStatistics());
         map.put("trainTime", new DescriptiveStatistics());
         map.put("testTime", new DescriptiveStatistics());
 
@@ -324,8 +324,6 @@ public class Runner
             map.get("hamFMeasure").addValue(Double.parseDouble(parts[8]));
             map.get("spamFMeasure").addValue(Double.parseDouble(parts[9]));
             map.get("fMeasure").addValue(Double.parseDouble(parts[10]));
-            map.get("fMeasureMicro").addValue(Double.parseDouble(parts[11]));
-            map.get("fMeasureMacro").addValue(Double.parseDouble(parts[12]));
         });
 
         Files
@@ -337,14 +335,15 @@ public class Runner
             .forEach(line -> map.get("testTime").addValue(Long.parseLong(line)));
 
         String aswd = "anti-spam-weka-data";
-        String shortFilename = partialResultsFilename.substring(partialResultsFilename.indexOf(aswd) + aswd.length() + 1);
+        String shortFilename = partialResultsFilename
+            .substring(partialResultsFilename.indexOf(aswd) + aswd.length() + 1);
         shortFilename = shortFilename.substring(0, shortFilename.lastIndexOf(File.separator));
         shortFilename = Arrays.stream(shortFilename.split(File.separator)).collect(Collectors.joining("\t"));
 
         System.out.println(
             String.format(
-                "%s\t%s ± %s\t%s ± %s\t%s ± %s\t%s ± %s\t%s ± %s\t%s ± %s\t%s ± %s\t%s ± %s\t%s ± %s\t%s ± %s\t%s ± %s\t%s ± %s\t%s ± %s\t%s ± %s\t%s ± %s",
-                shortFilename,
+                "%s\t%s ± %s\t%s ± %s\t%s ± %s\t%s ± %s\t%s ± %s\t%s ± %s\t%s ± %s\t%s ± %s\t%s ± %s\t%s ± %s\t%s ± %s\t%s ± %s\t%s ± %s",
+                shortFilename, 
                 formatPercentage(map.get("hamPrecision").getMean()), formatPercentage(confidenceInterval(map.get("hamPrecision"))),
                 formatPercentage(map.get("spamPrecision").getMean()), formatPercentage(confidenceInterval(map.get("spamPrecision"))),
                 formatPercentage(map.get("avgPrecision").getMean()), formatPercentage(confidenceInterval(map.get("avgPrecision"))),
@@ -355,9 +354,7 @@ public class Runner
                 formatPercentage(map.get("areaUnderROC").getMean()), formatPercentage(confidenceInterval(map.get("areaUnderROC"))),
                 formatPercentage(map.get("hamFMeasure").getMean()), formatPercentage(confidenceInterval(map.get("hamFMeasure"))),
                 formatPercentage(map.get("spamFMeasure").getMean()), formatPercentage(confidenceInterval(map.get("spamFMeasure"))),
-                formatPercentage(map.get("fMeasure").getMean()), formatPercentage(confidenceInterval(map.get("fMeasure"))),
-                formatPercentage(map.get("fMeasureMicro").getMean()), formatPercentage(confidenceInterval(map.get("fMeasureMicro"))),
-                formatPercentage(map.get("fMeasureMacro").getMean()), formatPercentage(confidenceInterval(map.get("fMeasureMacro"))),
+                formatPercentage(map.get("fMeasure").getMean()), formatPercentage(confidenceInterval(map.get("fMeasure"))), 
                 formatMillis(map.get("trainTime").getMean()), formatMillis(confidenceInterval(map.get("trainTime"))),
                 formatMillis(map.get("testTime").getMean()), formatMillis(confidenceInterval(map.get("testTime")))));
     }

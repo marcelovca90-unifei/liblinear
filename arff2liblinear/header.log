@@ -1,0 +1,1 @@
+name	method	nf	hamPrecision	spamPrecision	avgPrecision	hamRecall	spamRecall	avgRecall	areaUnderPRC	areaUnderROC	hamFMeasure	spamFMeasure	fMeasure	trainTime	testTime
