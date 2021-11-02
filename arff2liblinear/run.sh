@@ -1,10 +1,10 @@
 #!/bin/bash
 
 JVM_OPTS="-Xmx8G -Xms80m"
-METADATA="/Users/marcelocysneiros/git/marcelovca90-unifei/anti-spam-weka-data/metadata/_relevant_mac.txt"
+METADATA="/Users/marcelocysneiros/git/marcelovca90-unifei/anti-spam-weka-data/metadata/_RELEVANT.txt"
 PRIMES=(2 3 5 7 11 13 17 19 23 29)
 KERNELS=("poly1" "poly2")
-SOLVERS=("solver1" "solver2")
+SOLVERS=("solver1")
 
 for KERNEL in "${KERNELS[@]}"
 do

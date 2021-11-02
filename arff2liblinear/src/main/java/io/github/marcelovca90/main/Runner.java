@@ -149,7 +149,7 @@ public class Runner
         String model_file = training_set_file.replace(".train", ".model");
         String best_c_file = training_set_file.replace(".train", ".best_c");
         boolean find_best_c = false;
-        double best_c = 1.0;
+        double best_c = 128.0;
         String[] cmd;
 
         // find best C
@@ -165,7 +165,7 @@ public class Runner
             };
             run(cmd, best_c_file);
             Optional<String> optional = Files.lines(Paths.get(best_c_file)).filter(l -> l.startsWith("Best C")).findFirst();
-            best_c = optional.isPresent() ? Double.parseDouble(optional.get().split("\\s")[3]) : 1.0;
+            best_c = optional.isPresent() ? Double.parseDouble(optional.get().split("\\s")[3]) : best_c;
         }
 
         // train
